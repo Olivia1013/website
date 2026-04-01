@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>区块链原理模拟器</title>
+    <style>
+        body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f3f8ff; color: #0a2f6a; }
+        .container { width: min(980px, 92%); margin: 20px auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(11, 38, 97, 0.2); }
+        h1 { color: #0b4fa8; margin-bottom: 6px; }
+        h2 { color: #1464b3; margin-top: 24px; }
+        .block { border: 1px solid #91b5e0; background: #f7fbff; padding: 8px; margin: 5px 0; border-radius: 8px; }
+        .block h3 { margin: 0 0 8px; color: #0f4e8c; }
+        .valid { color: #0f8a4d; font-weight: 700; }
+        .invalid { color: #d42f3f; font-weight: 700; }
+        form { margin: 20px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        input, button { padding: 10px 12px; border-radius: 8px; border: 1px solid #8cb5db; font-size: 0.95rem; }
+        input:focus { outline: 2px solid #578eff; border-color: #578eff; }
+        button { background: linear-gradient(120deg, #2f7fcf, #5a9eff); color: #fff; border: none; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(65, 131, 223, 0.45); }
+        #validity { font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <h1>区块链原理模拟器</h1>
+    <p>链状态: <span id="validity" class="{{ 'valid' if valid else 'invalid' }}">{{ '有效' if valid else '无效' }}</span></p>
+
+    <h2>区块链</h2>
+    {% for block in chain %}
+    <div class="block">
+        <h3>区块 {{ block.index }}</h3>
+        <p>时间戳: {{ block.timestamp }}</p>
+        <p>数据: {{ block.data }}</p>
+        <p>前哈希: {{ block.previous_hash }}</p>
+        <p>哈希: {{ block.hash }}</p>
+        <p>Nonce: {{ block.nonce }}</p>
+    </div>
+    {% endfor %}
+
+    <h2>添加新区块</h2>
+    <form id="addBlockForm">
+        <input type="text" id="data" placeholder="输入区块数据" required>
+        <button type="submit">添加区块</button>
+    </form>
+
+    <h2>验证区块链</h2>
+    <button id="validateBtn">验证</button>
+
+    <h2>篡改区块（演示）</h2>
+    <form id="tamperForm">
+        <input type="number" id="index" placeholder="区块索引" min="1" max="{{ chain|length - 1 }}" required>
+        <input type="text" id="new_data" placeholder="新数据" required>
+        <button type="submit">篡改</button>
+    </form>
+
+    <script>
+        document.getElementById('addBlockForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = document.getElementById('data').value;
+            fetch('/add_block', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'data=' + encodeURIComponent(data)
+            }).then(() => location.reload());
+        });
+
+        document.getElementById('validateBtn').addEventListener('click', function() {
+            fetch('/validate').then(res => res.json()).then(data => {
+                document.getElementById('validity').textContent = data.valid ? '有效' : '无效';
+                document.getElementById('validity').className = data.valid ? 'valid' : 'invalid';
+            });
+        });
+
+        document.getElementById('tamperForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const index = document.getElementById('index').value;
+            const newData = document.getElementById('new_data').value;
+            fetch('/tamper', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'index=' + index + '&new_data=' + encodeURIComponent(newData)
+            }).then(() => location.reload());
+        });
+    </script>
+</body>
+</html>
