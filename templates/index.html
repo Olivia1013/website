@@ -6,81 +6,185 @@
     <title>区块链原理模拟器</title>
     <style>
         body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f3f8ff; color: #0a2f6a; }
-        .container { width: min(980px, 92%); margin: 20px auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(11, 38, 97, 0.2); }
-        h1 { color: #0b4fa8; margin-bottom: 6px; }
+        .container { width: min(1100px, 96%); margin: 20px auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(11, 38, 97, 0.2); }
+        h1 { color: #0b4fa8; margin-bottom: 10px; }
         h2 { color: #1464b3; margin-top: 24px; }
-        .block { border: 1px solid #91b5e0; background: #f7fbff; padding: 8px; margin: 5px 0; border-radius: 8px; }
+        .block { border: 1px solid #91b5e0; background: #f7fbff; padding: 12px; margin: 6px 0; border-radius: 8px; }
         .block h3 { margin: 0 0 8px; color: #0f4e8c; }
         .valid { color: #0f8a4d; font-weight: 700; }
         .invalid { color: #d42f3f; font-weight: 700; }
-        form { margin: 20px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-        input, button { padding: 10px 12px; border-radius: 8px; border: 1px solid #8cb5db; font-size: 0.95rem; }
-        input:focus { outline: 2px solid #578eff; border-color: #578eff; }
+        form { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        input, button, select { padding: 10px 12px; border-radius: 8px; border: 1px solid #8cb5db; font-size: 0.95rem; }
+        input:focus, select:focus { outline: 2px solid #578eff; border-color: #578eff; }
         button { background: linear-gradient(120deg, #2f7fcf, #5a9eff); color: #fff; border: none; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
         button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(65, 131, 223, 0.45); }
         #validity { font-size: 1.1rem; }
+        .flex-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+        .charts { margin-top: 15px; display: grid; grid-template-columns: 1fr; gap: 18px; }
+        .chart-card { background: #f8fbff; border: 1px solid #d8e9ff; border-radius: 10px; padding: 12px; }
     </style>
 </head>
 <body>
-    <h1>区块链原理模拟器</h1>
-    <p>链状态: <span id="validity" class="{{ 'valid' if valid else 'invalid' }}">{{ '有效' if valid else '无效' }}</span></p>
+    <div class="container">
+        <h1>区块链原理模拟器</h1>
+        <p>链状态: <span id="validity" class="valid">有效</span>  当前难度: <span id="difficulty">4</span></p>
 
-    <h2>区块链</h2>
-    {% for block in chain %}
-    <div class="block">
-        <h3>区块 {{ block.index }}</h3>
-        <p>时间戳: {{ block.timestamp }}</p>
-        <p>数据: {{ block.data }}</p>
-        <p>前哈希: {{ block.previous_hash }}</p>
-        <p>哈希: {{ block.hash }}</p>
-        <p>Nonce: {{ block.nonce }}</p>
+        <div class="flex-row">
+            <div>
+                <h2>区块链</h2>
+                <div id="chain"></div>
+
+                <h2>操作</h2>
+                <form id="addBlockForm">
+                    <input type="text" id="data" placeholder="输入区块数据" required>
+                    <button type="submit">添加区块</button>
+                </form>
+                <button id="validateBtn">验证区块链</button>
+                <form id="tamperForm">
+                    <input type="number" id="index" placeholder="区块索引" min="1" required>
+                    <input type="text" id="new_data" placeholder="新数据" required>
+                    <button type="submit">篡改</button>
+                </form>
+                <form id="difficultyForm">
+                    <label for="difficultyInput">设置难度：</label>
+                    <input id="difficultyInput" type="number" min="1" max="6" value="4">
+                    <button type="submit">更新难度</button>
+                </form>
+            </div>
+
+            <div class="charts">
+                <div class="chart-card">
+                    <h3>挖矿速度（Nonce/秒）</h3>
+                    <canvas id="chartMiningSpeed" height="180"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>链长度随时间增长</h3>
+                    <canvas id="chartChainLength" height="180"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>难度变化历史</h3>
+                    <canvas id="chartDifficulty" height="180"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
-    {% endfor %}
 
-    <h2>添加新区块</h2>
-    <form id="addBlockForm">
-        <input type="text" id="data" placeholder="输入区块数据" required>
-        <button type="submit">添加区块</button>
-    </form>
-
-    <h2>验证区块链</h2>
-    <button id="validateBtn">验证</button>
-
-    <h2>篡改区块（演示）</h2>
-    <form id="tamperForm">
-        <input type="number" id="index" placeholder="区块索引" min="1" max="{{ chain|length - 1 }}" required>
-        <input type="text" id="new_data" placeholder="新数据" required>
-        <button type="submit">篡改</button>
-    </form>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        document.getElementById('addBlockForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const data = document.getElementById('data').value;
-            fetch('/add_block', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'data=' + encodeURIComponent(data)
-            }).then(() => location.reload());
-        });
+        let chartMiningSpeed, chartChainLength, chartDifficulty;
 
-        document.getElementById('validateBtn').addEventListener('click', function() {
-            fetch('/validate').then(res => res.json()).then(data => {
-                document.getElementById('validity').textContent = data.valid ? '有效' : '无效';
-                document.getElementById('validity').className = data.valid ? 'valid' : 'invalid';
+        function renderChain(chain) {
+            const container = document.getElementById('chain');
+            container.innerHTML = '';
+            chain.forEach(block => {
+                const div = document.createElement('div');
+                div.className = 'block';
+                div.innerHTML = `
+                    <h3>区块 ${block.index}</h3>
+                    <p>时间戳: ${new Date(block.timestamp * 1000).toLocaleString()}</p>
+                    <p>数据: ${block.data}</p>
+                    <p>前哈希: ${block.previous_hash}</p>
+                    <p>哈希: ${block.hash}</p>
+                    <p>Nonce: ${block.nonce}</p>
+                `;
+                container.appendChild(div);
             });
+        }
+
+        function renderCharts(history) {
+            const labels = history.map(i => new Date(i.timestamp * 1000).toLocaleTimeString());
+            const miningSpeedData = history.map(i => parseFloat(i.mining_speed.toFixed(2)));
+            const chainLengthData = history.map(i => i.chain_length);
+            const difficultyData = history.map(i => i.difficulty);
+
+            function createOrUpdateChart(chartVar, id, label, data, borderColor) {
+                const ctx = document.getElementById(id).getContext('2d');
+                if (chartVar) {
+                    chartVar.data.labels = labels;
+                    chartVar.data.datasets[0].data = data;
+                    chartVar.update();
+                } else {
+                    chartVar = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [{ label, data, borderColor, borderWidth: 2, fill: false }]
+                        },
+                        options: { responsive: true, scales: { y: { beginAtZero: true }} }
+                    });
+                }
+                return chartVar;
+            }
+
+            chartMiningSpeed = createOrUpdateChart(chartMiningSpeed, 'chartMiningSpeed', 'Nonce/秒', miningSpeedData, '#2a7ccf');
+            chartChainLength = createOrUpdateChart(chartChainLength, 'chartChainLength', '链长度', chainLengthData, '#4caf50');
+            chartDifficulty = createOrUpdateChart(chartDifficulty, 'chartDifficulty', '难度', difficultyData, '#e67e22');
+        }
+
+        function updateState(state) {
+            document.getElementById('validity').textContent = state.valid ? '有效' : '无效';
+            document.getElementById('validity').className = state.valid ? 'valid' : 'invalid';
+            document.getElementById('difficulty').textContent = state.difficulty;
+            renderChain(state.chain);
+            renderCharts(state.history);
+        }
+
+        async function loadState() {
+            const resp = await fetch('/api/chain');
+            const data = await resp.json();
+            updateState(data);
+        }
+
+        document.getElementById('addBlockForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const data = document.getElementById('data').value.trim();
+            if (!data) return;
+            await fetch('/api/mine', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({data}) });
+            document.getElementById('data').value = '';
         });
 
-        document.getElementById('tamperForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const index = document.getElementById('index').value;
-            const newData = document.getElementById('new_data').value;
-            fetch('/tamper', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'index=' + index + '&new_data=' + encodeURIComponent(newData)
-            }).then(() => location.reload());
+        document.getElementById('validateBtn').addEventListener('click', async function() {
+            const resp = await fetch('/api/validate');
+            const body = await resp.json();
+            document.getElementById('validity').textContent = body.valid ? '有效' : '无效';
+            document.getElementById('validity').className = body.valid ? 'valid' : 'invalid';
         });
+
+        document.getElementById('tamperForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const index = Number(document.getElementById('index').value);
+            const newData = document.getElementById('new_data').value;
+            if (!newData || index < 1) return;
+            await fetch('/api/tamper', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({index, new_data: newData}) });
+        });
+
+        document.getElementById('difficultyForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const difficulty = Number(document.getElementById('difficultyInput').value);
+            const resp = await fetch('/api/difficulty', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({difficulty}) });
+            if (resp.ok) {
+                const body = await resp.json();
+                document.getElementById('difficulty').textContent = body.difficulty;
+            }
+        });
+
+        const evtSource = new EventSource('/stream');
+        evtSource.onmessage = function(event) {
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.chain && payload.stats) {
+                    updateState({ chain: payload.chain, valid: payload.valid, difficulty: payload.stats.length ? payload.stats[payload.stats.length - 1].difficulty : document.getElementById('difficulty').textContent, history: payload.stats });
+                } else if (payload.type === 'difficulty_update') {
+                    document.getElementById('difficulty').textContent = payload.difficulty;
+                    // 发生难度变更时刷新完整状态，确保难度历史图表也更新
+                    loadState();
+                }
+            } catch (e) {
+                console.error('SSE解析失败', e);
+            }
+        };
+
+        loadState();
     </script>
 </body>
 </html>
