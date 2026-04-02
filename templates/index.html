@@ -5,69 +5,366 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>区块链原理模拟器</title>
     <style>
-        body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f3f8ff; color: #0a2f6a; }
-        .container { width: min(1100px, 96%); margin: 20px auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(11, 38, 97, 0.2); }
-        h1 { color: #0b4fa8; margin-bottom: 10px; }
-        h2 { color: #1464b3; margin-top: 24px; }
-        .block { border: 1px solid #91b5e0; background: #f7fbff; padding: 12px; margin: 6px 0; border-radius: 8px; }
-        .block h3 { margin: 0 0 8px; color: #0f4e8c; }
-        .valid { color: #0f8a4d; font-weight: 700; }
-        .invalid { color: #d42f3f; font-weight: 700; }
-        form { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-        input, button, select { padding: 10px 12px; border-radius: 8px; border: 1px solid #8cb5db; font-size: 0.95rem; }
-        input:focus, select:focus { outline: 2px solid #578eff; border-color: #578eff; }
-        button { background: linear-gradient(120deg, #2f7fcf, #5a9eff); color: #fff; border: none; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(65, 131, 223, 0.45); }
-        #validity { font-size: 1.1rem; }
-        .flex-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-        .charts { margin-top: 15px; display: grid; grid-template-columns: 1fr; gap: 18px; }
-        .chart-card { background: #f8fbff; border: 1px solid #d8e9ff; border-radius: 10px; padding: 12px; }
+        :root {
+          --primary: #1a1a2e;
+          --secondary: #16213e;
+          --accent: #0f3460;
+          --text: #e6e6e6;
+          --background: #0b0d1a;
+          --card-bg: #141a33;
+          --muted: #aab2d0;
+          --gradient: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          min-height: 100vh;
+          background: var(--background);
+          color: var(--text);
+          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .app-header {
+          padding: 18px 24px;
+          background: linear-gradient(135deg, #101a33 0%, #1f2651 100%);
+          border-bottom: 1px solid #1e2746;
+        }
+
+        .header-content {
+          max-width: 1400px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .app-header h1 {
+          margin: 0;
+          font-size: 1.6rem;
+        }
+
+        .header-stats {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .status-badge,
+        .difficulty-badge {
+          color: #fff;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-weight: 500;
+          font-size: 0.95rem;
+        }
+
+        .status-valid {
+          background: rgba(16, 172, 132, 0.4);
+          border: 1px solid rgba(16, 172, 132, 0.8);
+        }
+
+        .status-invalid {
+          background: rgba(255, 107, 107, 0.3);
+          border: 1px solid rgba(255, 107, 107, 0.8);
+        }
+
+        .difficulty-badge {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+        }
+
+        .main-content {
+          max-width: 1400px;
+          margin: 20px auto;
+          padding: 20px;
+          display: grid;
+          grid-template-columns: 1fr 360px;
+          gap: 20px;
+        }
+
+        .blocks-section,
+        .sidebar {
+          background: var(--card-bg);
+          border-radius: 12px;
+          padding: 18px;
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+        }
+
+        .section-header,
+        .panel h3 {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          color: var(--text);
+        }
+
+        .btn-refresh,
+        .btn-primary,
+        .btn-secondary,
+        .btn-danger {
+          cursor: pointer;
+          border-radius: 8px;
+          padding: 12px 20px;
+          border: none;
+          font-weight: 500;
+          transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+          background: var(--gradient);
+          color: #fff;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .btn-primary:hover,
+        .btn-refresh:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+          background: #f8f9fa;
+          color: var(--primary);
+          border: 1px solid #dee2e6;
+        }
+
+        .btn-danger {
+          background: #ff4757;
+          color: #fff;
+        }
+
+        .input-group {
+          position: relative;
+          margin-bottom: 16px;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group button {
+          width: 100%;
+          padding: 12px 14px;
+          border: 2px solid #e0e0e0;
+          border-radius: 8px;
+          font-size: 16px;
+          background: #ffffff;
+          color: #2d3436;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+          border-color: var(--secondary);
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .block-card {
+          background: #070b1e;
+          border-radius: 12px;
+          padding: 18px;
+          margin-bottom: 16px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          border-left: 4px solid var(--secondary);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+          animation: fadeIn 0.5s ease-out;
+        }
+
+        .block-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .block-card:before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: var(--gradient);
+        }
+
+        .block-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #2f3c62;
+        }
+
+        .block-number {
+          font-size: 1.1em;
+          font-weight: 700;
+          color: var(--text);
+          background: #0f1a3d;
+          padding: 5px 14px;
+          border-radius: 20px;
+        }
+
+        .block-body {
+          display: grid;
+          gap: 8px;
+          color: var(--muted);
+          font-size: 0.95rem;
+        }
+
+        .data-field label {
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .data-value,
+        .hash-value {
+          background: #0f1a3d;
+          padding: 8px 10px;
+          border-radius: 8px;
+          font-family: 'Monaco', 'Consolas', monospace;
+          word-break: break-all;
+          border: 1px solid #2a3a64;
+          color: #d8e7ff;
+        }
+
+        .chart-container {
+          background: #070b1e;
+          border-radius: 12px;
+          padding: 18px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          margin-bottom: 16px;
+        }
+
+        .chart-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #2f3c62;
+        }
+
+        .chart-title {
+          font-size: 1.05em;
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .chart-legend {
+          display: flex;
+          gap: 10px;
+          color: #9eb1d8;
+        }
+
+        .notification {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #fff;
+          padding: 15px 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transform: translateX(150%);
+          transition: transform 0.3s ease;
+          z-index: 1000;
+          color: #222;
+        }
+
+        .notification.show { transform: translateX(0); }
+        .notification.success { border-left: 4px solid #10ac84; }
+        .notification.error { border-left: 4px solid #ff6b6b; }
+
+        @media (max-width: 1024px) {
+          .main-content { grid-template-columns: 1fr; }
+          .sidebar { order: -1; }
+        }
+
+        @media (max-width: 768px) {
+          .main-content { padding: 10px; gap: 15px; }
+          .block-card { padding: 15px; }
+          .btn-primary, .btn-secondary, .btn-refresh { padding: 10px 16px; font-size: 14px; }
+          .chart-container { padding: 15px; }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+
+        .block-added { animation: pulse 0.3s ease; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>区块链原理模拟器</h1>
-        <p>链状态: <span id="validity" class="valid">有效</span>  当前难度: <span id="difficulty">4</span></p>
-
-        <div class="flex-row">
-            <div>
-                <h2>区块链</h2>
-                <div id="chain"></div>
-
-                <h2>操作</h2>
-                <form id="addBlockForm">
-                    <input type="text" id="data" placeholder="输入区块数据" required>
-                    <button type="submit">添加区块</button>
-                </form>
-                <button id="validateBtn">验证区块链</button>
-                <form id="tamperForm">
-                    <input type="number" id="index" placeholder="区块索引" min="1" required>
-                    <input type="text" id="new_data" placeholder="新数据" required>
-                    <button type="submit">篡改</button>
-                </form>
-                <form id="difficultyForm">
-                    <label for="difficultyInput">设置难度：</label>
-                    <input id="difficultyInput" type="number" min="1" max="6" value="4">
-                    <button type="submit">更新难度</button>
-                </form>
-            </div>
-
-            <div class="charts">
-                <div class="chart-card">
-                    <h3>挖矿速度（Nonce/秒）</h3>
-                    <canvas id="chartMiningSpeed" height="180"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>链长度随时间增长</h3>
-                    <canvas id="chartChainLength" height="180"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>难度变化历史</h3>
-                    <canvas id="chartDifficulty" height="180"></canvas>
-                </div>
-            </div>
+    <header class="app-header">
+      <div class="header-content">
+        <h1>🔗 区块链原理模拟器</h1>
+        <div class="header-stats">
+          <span id="statusBadge" class="status-badge status-valid">链状态：有效</span>
+          <span class="difficulty-badge" id="difficulty">难度：4</span>
         </div>
-    </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="blocks-section">
+        <div class="section-header">
+          <h2>区块链</h2>
+          <button id="validateBtn" class="btn-secondary">验证区块链</button>
+        </div>
+        <div id="chain"></div>
+
+        <h3 style="margin-top: 20px; color: #e6e6e6;">操作</h3>
+        <form id="addBlockForm" class="input-group">
+          <input type="text" id="data" placeholder="输入区块数据" required>
+          <button class="btn-primary" type="submit">⛏️ 添加区块</button>
+        </form>
+
+        <form id="tamperForm" class="input-group">
+          <input type="number" id="index" placeholder="区块索引" min="1" required>
+          <input type="text" id="new_data" placeholder="新数据" required>
+          <button class="btn-danger" type="submit">⚠️ 篡改</button>
+        </form>
+
+        <form id="difficultyForm" class="input-group">
+          <label for="difficultyInput">设置难度：</label>
+          <input id="difficultyInput" type="number" min="1" max="6" value="4">
+          <button class="btn-secondary" type="submit">更新难度</button>
+        </form>
+      </section>
+
+      <aside class="sidebar">
+        <div class="panel chart-panel">
+          <h3>📈 统计图表</h3>
+          <div class="chart-container">
+            <div class="chart-header"><span class="chart-title">挖矿速度（Nonce/秒）</span></div>
+            <canvas id="chartMiningSpeed" height="180"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-header"><span class="chart-title">链长度随时间增长</span></div>
+            <canvas id="chartChainLength" height="180"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-header"><span class="chart-title">难度变化历史</span></div>
+            <canvas id="chartDifficulty" height="180"></canvas>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <div id="notification" class="notification"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -78,14 +375,18 @@
             container.innerHTML = '';
             chain.forEach(block => {
                 const div = document.createElement('div');
-                div.className = 'block';
+                div.className = 'block-card';
                 div.innerHTML = `
-                    <h3>区块 ${block.index}</h3>
-                    <p>时间戳: ${new Date(block.timestamp * 1000).toLocaleString()}</p>
-                    <p>数据: ${block.data}</p>
-                    <p>前哈希: ${block.previous_hash}</p>
-                    <p>哈希: ${block.hash}</p>
-                    <p>Nonce: ${block.nonce}</p>
+                    <div class="block-header">
+                      <span class="block-number">区块 #${block.index}</span>
+                      <span class="block-time">${new Date(block.timestamp * 1000).toLocaleString()}</span>
+                    </div>
+                    <div class="block-body">
+                      <div class="data-field"><label>数据：</label><div class="data-value">${block.data}</div></div>
+                      <div class="data-field"><label>前哈希：</label><div class="hash-value">${block.previous_hash}</div></div>
+                      <div class="data-field"><label>哈希：</label><div class="hash-value">${block.hash}</div></div>
+                      <div class="data-field"><label>Nonce：</label><div class="data-value">${block.nonce}</div></div>
+                    </div>
                 `;
                 container.appendChild(div);
             });
@@ -122,9 +423,11 @@
         }
 
         function updateState(state) {
-            document.getElementById('validity').textContent = state.valid ? '有效' : '无效';
-            document.getElementById('validity').className = state.valid ? 'valid' : 'invalid';
-            document.getElementById('difficulty').textContent = state.difficulty;
+            const statusBadge = document.getElementById('statusBadge');
+            const difficultyEl = document.getElementById('difficulty');
+            statusBadge.textContent = `链状态：${state.valid ? '有效' : '无效'}`;
+            statusBadge.className = `status-badge ${state.valid ? 'status-valid' : 'status-invalid'}`;
+            difficultyEl.textContent = `难度：${state.difficulty}`;
             renderChain(state.chain);
             renderCharts(state.history);
         }
@@ -146,8 +449,9 @@
         document.getElementById('validateBtn').addEventListener('click', async function() {
             const resp = await fetch('/api/validate');
             const body = await resp.json();
-            document.getElementById('validity').textContent = body.valid ? '有效' : '无效';
-            document.getElementById('validity').className = body.valid ? 'valid' : 'invalid';
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.textContent = body.valid ? '链状态：有效' : '链状态：无效';
+            statusBadge.className = `status-badge ${body.valid ? 'status-valid' : 'status-invalid'}`;
         });
 
         document.getElementById('tamperForm').addEventListener('submit', async function(e) {
@@ -164,7 +468,7 @@
             const resp = await fetch('/api/difficulty', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({difficulty}) });
             if (resp.ok) {
                 const body = await resp.json();
-                document.getElementById('difficulty').textContent = body.difficulty;
+                document.getElementById('difficulty').textContent = `难度：${body.difficulty}`;
             }
         });
 
@@ -175,7 +479,7 @@
                 if (payload.chain && payload.stats) {
                     updateState({ chain: payload.chain, valid: payload.valid, difficulty: payload.stats.length ? payload.stats[payload.stats.length - 1].difficulty : document.getElementById('difficulty').textContent, history: payload.stats });
                 } else if (payload.type === 'difficulty_update') {
-                    document.getElementById('difficulty').textContent = payload.difficulty;
+                    document.getElementById('difficulty').textContent = `难度：${payload.difficulty}`;
                     // 发生难度变更时刷新完整状态，确保难度历史图表也更新
                     loadState();
                 }
