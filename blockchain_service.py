@@ -79,7 +79,10 @@ class BlockchainService:
             'data': block.data,
             'previous_hash': block.previous_hash,
             'hash': block.hash,
-            'nonce': block.nonce
+            'nonce': block.nonce,
+            'difficulty': block.difficulty,
+            'mining_time': round(block.mining_time, 3),
+            'mining_speed': round(block.mining_speed, 3)
         }
 
 service = BlockchainService()

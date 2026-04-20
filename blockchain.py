@@ -12,22 +12,21 @@ class Blockchain:
         genesis_block = Block(0, time.time(), "Genesis Block", "0")
         genesis_block.mine_block(self.difficulty)
         self.chain.append(genesis_block)
-        self._record_history(genesis_block, 0.0)
+        self._record_history(genesis_block)
 
     def get_latest_block(self):
         return self.chain[-1]
 
     def add_block(self, new_block):
         new_block.previous_hash = self.get_latest_block().hash
-        start = time.time()
         new_block.mine_block(self.difficulty)
-        mining_time = time.time() - start
         self.chain.append(new_block)
-        self._record_history(new_block, mining_time)
+        self._record_history(new_block)
         return {
-            'mining_time': mining_time,
+            'mining_time': round(new_block.mining_time, 3),
             'nonce': new_block.nonce,
-            'mining_speed': new_block.nonce / mining_time if mining_time > 0 else 0
+            'mining_speed': round(new_block.mining_speed, 3),
+            'difficulty': new_block.difficulty
         }
 
     def is_chain_valid(self):
@@ -53,14 +52,21 @@ class Blockchain:
             return True
         return False
 
-    def _record_history(self, block, mining_time):
+    def _record_history(self, block):
+        note = '创世区块作为链的起点。'
+        if block.index > 0:
+            note = f'区块#{block.index}完成挖矿，耗时 {block.mining_time:.3f} 秒，挖矿速度约 {block.mining_speed:.2f} Nonce/秒。'
+
         self.history.append({
             'timestamp': time.time(),
+            'block_index': block.index,
+            'block_timestamp': block.timestamp,
             'chain_length': len(self.chain),
             'difficulty': self.difficulty,
-            'mining_time': mining_time,
+            'mining_time': round(block.mining_time, 3),
             'nonce': block.nonce,
-            'mining_speed': block.nonce / mining_time if mining_time > 0 else 0
+            'mining_speed': round(block.mining_speed, 3),
+            'note': note
         })
 
     def _record_difficulty_change(self):

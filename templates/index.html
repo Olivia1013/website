@@ -240,6 +240,25 @@
           margin-bottom: 16px;
         }
 
+        .lesson-panel {
+          background: #070b1e;
+          border-radius: 12px;
+          padding: 18px;
+          margin-bottom: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .lesson-panel h3 {
+          margin-bottom: 14px;
+          color: #f8f9fa;
+        }
+
+        .lesson-tip {
+          color: #cfd8ff;
+          line-height: 1.7;
+          font-size: 0.96rem;
+        }
+
         .chart-header {
           display: flex;
           justify-content: space-between;
@@ -346,11 +365,19 @@
       </section>
 
       <aside class="sidebar">
+        <div class="lesson-panel">
+          <h3>🧠 教学提示</h3>
+          <p id="lessonTip" class="lesson-tip">每个区块都包含前一个区块的哈希，保证链条不可篡改。添加新区块时会进行工作量证明，挖矿速度与难度共同决定挖矿耗时。</p>
+        </div>
         <div class="panel chart-panel">
           <h3>📈 统计图表</h3>
           <div class="chart-container">
             <div class="chart-header"><span class="chart-title">挖矿速度（Nonce/秒）</span></div>
             <canvas id="chartMiningSpeed" height="180"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-header"><span class="chart-title">挖矿耗时（秒）</span></div>
+            <canvas id="chartMiningTime" height="180"></canvas>
           </div>
           <div class="chart-container">
             <div class="chart-header"><span class="chart-title">链长度随时间增长</span></div>
@@ -368,7 +395,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        let chartMiningSpeed, chartChainLength, chartDifficulty;
+        let chartMiningSpeed, chartMiningTime, chartChainLength, chartDifficulty;
+        let notificationTimer = null;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
+            window.clearTimeout(notificationTimer);
+            notificationTimer = window.setTimeout(() => {
+                notification.className = 'notification';
+            }, 3000);
+        }
 
         function renderChain(chain) {
             const container = document.getElementById('chain');
@@ -386,15 +424,28 @@
                       <div class="data-field"><label>前哈希：</label><div class="hash-value">${block.previous_hash}</div></div>
                       <div class="data-field"><label>哈希：</label><div class="hash-value">${block.hash}</div></div>
                       <div class="data-field"><label>Nonce：</label><div class="data-value">${block.nonce}</div></div>
+                      <div class="data-field"><label>难度：</label><div class="data-value">${block.difficulty}</div></div>
+                      <div class="data-field"><label>挖矿耗时：</label><div class="data-value">${block.mining_time.toFixed(3)} 秒</div></div>
+                      <div class="data-field"><label>挖矿速度：</label><div class="data-value">${block.mining_speed.toFixed(2)} Nonce/秒</div></div>
                     </div>
                 `;
+                if (block.index === chain.length - 1) {
+                    div.classList.add('block-added');
+                }
                 container.appendChild(div);
             });
+        }
+
+        function renderLessonTip(history) {
+            const tip = document.getElementById('lessonTip');
+            if (!history.length) return;
+            tip.textContent = history[history.length - 1].note || '每次挖矿都会记录难度、耗时和挖矿速度，帮助理解链的成长过程。';
         }
 
         function renderCharts(history) {
             const labels = history.map(i => new Date(i.timestamp * 1000).toLocaleTimeString());
             const miningSpeedData = history.map(i => parseFloat(i.mining_speed.toFixed(2)));
+            const miningTimeData = history.map(i => parseFloat(i.mining_time.toFixed(3)));
             const chainLengthData = history.map(i => i.chain_length);
             const difficultyData = history.map(i => i.difficulty);
 
@@ -409,15 +460,20 @@
                         type: 'line',
                         data: {
                             labels,
-                            datasets: [{ label, data, borderColor, borderWidth: 2, fill: false }]
+                            datasets: [{ label, data, borderColor, borderWidth: 2, fill: false, tension: 0.3 }]
                         },
-                        options: { responsive: true, scales: { y: { beginAtZero: true }} }
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true }, x: { ticks: { maxRotation: 45, minRotation: 0 } } }
+                        }
                     });
                 }
                 return chartVar;
             }
 
             chartMiningSpeed = createOrUpdateChart(chartMiningSpeed, 'chartMiningSpeed', 'Nonce/秒', miningSpeedData, '#2a7ccf');
+            chartMiningTime = createOrUpdateChart(chartMiningTime, 'chartMiningTime', '挖矿耗时（秒）', miningTimeData, '#f1c40f');
             chartChainLength = createOrUpdateChart(chartChainLength, 'chartChainLength', '链长度', chainLengthData, '#4caf50');
             chartDifficulty = createOrUpdateChart(chartDifficulty, 'chartDifficulty', '难度', difficultyData, '#e67e22');
         }
@@ -430,10 +486,15 @@
             difficultyEl.textContent = `难度：${state.difficulty}`;
             renderChain(state.chain);
             renderCharts(state.history);
+            renderLessonTip(state.history);
         }
 
         async function loadState() {
             const resp = await fetch('/api/chain');
+            if (!resp.ok) {
+                showNotification('无法加载区块链状态，请稍后重试。', 'error');
+                return;
+            }
             const data = await resp.json();
             updateState(data);
         }
@@ -442,8 +503,13 @@
             e.preventDefault();
             const data = document.getElementById('data').value.trim();
             if (!data) return;
-            await fetch('/api/mine', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({data}) });
-            document.getElementById('data').value = '';
+            const resp = await fetch('/api/mine', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({data}) });
+            if (resp.ok) {
+                showNotification('新区块已成功挖出，链已实时更新。');
+                document.getElementById('data').value = '';
+            } else {
+                showNotification('新增区块失败，请检查输入。', 'error');
+            }
         });
 
         document.getElementById('validateBtn').addEventListener('click', async function() {
@@ -452,6 +518,7 @@
             const statusBadge = document.getElementById('statusBadge');
             statusBadge.textContent = body.valid ? '链状态：有效' : '链状态：无效';
             statusBadge.className = `status-badge ${body.valid ? 'status-valid' : 'status-invalid'}`;
+            showNotification(body.valid ? '链验证成功，当前状态有效。' : '链验证失败，链可能已篡改。', body.valid ? 'success' : 'error');
         });
 
         document.getElementById('tamperForm').addEventListener('submit', async function(e) {
@@ -459,7 +526,13 @@
             const index = Number(document.getElementById('index').value);
             const newData = document.getElementById('new_data').value;
             if (!newData || index < 1) return;
-            await fetch('/api/tamper', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({index, new_data: newData}) });
+            const resp = await fetch('/api/tamper', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({index, new_data: newData}) });
+            const result = await resp.json();
+            if (resp.ok && result.success) {
+                showNotification(`区块 #${index} 已篡改，链状态可能失效。`, 'error');
+            } else {
+                showNotification('篡改失败，请检查区块索引。', 'error');
+            }
         });
 
         document.getElementById('difficultyForm').addEventListener('submit', async function(e) {
@@ -469,6 +542,10 @@
             if (resp.ok) {
                 const body = await resp.json();
                 document.getElementById('difficulty').textContent = `难度：${body.difficulty}`;
+                showNotification(`难度已更新为 ${body.difficulty}。`);
+            } else {
+                const body = await resp.json();
+                showNotification(body.error || '难度更新失败。', 'error');
             }
         });
 
@@ -477,11 +554,12 @@
             try {
                 const payload = JSON.parse(event.data);
                 if (payload.chain && payload.stats) {
-                    updateState({ chain: payload.chain, valid: payload.valid, difficulty: payload.stats.length ? payload.stats[payload.stats.length - 1].difficulty : document.getElementById('difficulty').textContent, history: payload.stats });
+                    updateState({ chain: payload.chain, valid: payload.valid, difficulty: payload.stats.length ? payload.stats[payload.stats.length - 1].difficulty : Number(document.getElementById('difficulty').textContent.replace('难度：', '')), history: payload.stats });
+                    showNotification('链状态已实时更新。');
                 } else if (payload.type === 'difficulty_update') {
                     document.getElementById('difficulty').textContent = `难度：${payload.difficulty}`;
-                    // 发生难度变更时刷新完整状态，确保难度历史图表也更新
                     loadState();
+                    showNotification('难度已变更，图表已刷新。');
                 }
             } catch (e) {
                 console.error('SSE解析失败', e);

@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response
 from blockchain_service import service
-import time
 
 app = Flask(__name__)
 
